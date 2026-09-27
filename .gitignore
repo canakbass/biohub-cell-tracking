@@ -1,0 +1,20 @@
+# Derived artifacts (checkpoints, candidate dumps, logs, submissions) -
+# large, regenerable from the scripts, not source.
+out/
+cand/
+logs*.txt
+*.pt
+*.pkl
+*.npz
+*.csv
+
+# Other competitors' reference notebooks saved for internal research only -
+# not mine to redistribute.
+public/
+
+__pycache__/
+*.pyc
+
+# Kaggle credentials must never be committed
+kaggle.json
+credentials.json
