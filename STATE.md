@@ -1025,3 +1025,20 @@ diskalifiye olur. Bu, mevcut LB 0.863'ü ve tüm ilerlemeyi riske atar.
 Kullanıcıya açıkça anlatıldı, kullanıcı KABUL ETTİ ("gerek yok canım").
 `credentials.json` dosyasına HİÇ dokunulmadı, `kdrive.py` onu okumuyor.
 BİR DAHA GÜNDEME GELİRSE AYNI CEVABI VER: kullanma.
+
+## 9. PROJE KAPANIŞI (2026-09-28)
+
+Kullanıcı kararıyla yarışma çalışması burada durduruldu. Son durum:
+- **Doğrulanmış, kanıtlanmış en iyi skor: LB 0.863** (v39/v41, geometrik linker).
+- Bölünme'nin 3. denemesi de (sınıf dengesizliği düzeltmesiyle) kapandı: en iyi
+  eşikte bile dtp=0-1, dfp binlerce → `KAZANC YOK`, model kaydedilmedi.
+  Üç bağımsız kök-neden bulup düzeltmemize rağmen (linker-bağımlılığı →
+  sınıf dengesizliği → hâlâ ayırt edemiyor) görev bu haliyle çözülemedi.
+  Muhtemelen özellik seti (geometrik mesafe/açı) bölünmeyi "gerçek olmayan
+  yakınlık"tan ayırt etmeye yetmiyor; UNet embedding-tabanlı özellikler
+  denenmedi (zaman kalmadı).
+- 4 gelişim denemesinden (ensemble, kenar sınıflandırıcı, LAP, izotropik
+  havuzlama, bölünme×3) SADECE orijinal v9→v11 detektör düzeltmesi kalıcı
+  kazanç sağladı. Bu, projenin ana dersi: gerçek bir hata düzeltmek, zaten
+  yakınsamış bir sisteme ince ayar yapmaktan çok daha güvenilir.
+- Kod GitHub'a taşındı: https://github.com/canakbass/biohub-cell-tracking
