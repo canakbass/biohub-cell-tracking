@@ -229,7 +229,9 @@ def read_gt_points(geff_path):
     by_t = {}
     for i in range(len(t)):
         by_t.setdefault(int(t[i]), []).append((z[i], y[i], x[i]))
-    return by_t
+    meta = dict(g.attrs).get("geff", {}) or {}
+    est_nodes = (meta.get("extra") or {}).get("estimated_number_of_nodes")
+    return by_t, (float(est_nodes) if est_nodes is not None else None)
 
 
 # =============================================================================
@@ -247,27 +249,16 @@ print(f"model yuklendi: epoch={ck.get('epoch','?')}")
 zdir = os.path.join(TRAIN, DATASET_NAME + ".zarr")
 gdir = os.path.join(TRAIN, DATASET_NAME + ".geff")
 
-print(f"COMP var mi: {os.path.isdir(COMP)}")
-print(f"COMP icerik: {sorted(os.listdir(COMP)) if os.path.isdir(COMP) else 'YOK'}")
-print(f"/kaggle/input icerik: {sorted(os.listdir('/kaggle/input'))}")
-print(f"/kaggle/input/competitions var mi: {os.path.isdir('/kaggle/input/competitions')}")
-if os.path.isdir('/kaggle/input/competitions'):
-    print(f"/kaggle/input/competitions icerik: {sorted(os.listdir('/kaggle/input/competitions'))}")
-print(f"TRAIN var mi: {os.path.isdir(TRAIN)}")
-print(f"TRAIN icerik (ilk 10): {sorted(os.listdir(TRAIN))[:10] if os.path.isdir(TRAIN) else 'YOK'}")
-print(f"zdir={zdir} var mi: {os.path.isdir(zdir)}")
-if os.path.isdir(zdir):
-    print(f"zdir icerik: {sorted(os.listdir(zdir))}")
-    sub0 = os.path.join(zdir, "0")
-    print(f"zdir/0 var mi: {os.path.isdir(sub0)}")
-    if os.path.isdir(sub0):
-        print(f"zdir/0 icerik: {sorted(os.listdir(sub0))}")
-
 arr = zarr.open(os.path.join(zdir, "0"), mode='r')
 T, Z, Y, X = arr.shape
 N_FRAMES = min(N_FRAMES, T)
-gt_by_t = read_gt_points(gdir)
-print(f"dataset={DATASET_NAME} T={T} Z={Z} Y={Y} X={X}  gosterilecek frame={N_FRAMES}")
+gt_by_t, est_nodes = read_gt_points(gdir)
+# GT SEYREK (kasitli): sadece ~%3.6 hucre isaretli - README'deki bilinen olgu.
+# Tahmin sayisini GT'ye gore SINIRLAMAK YANLIS olurdu (asiri az gosterirdi) ->
+# GERCEK yogunluk hedefi olan est_nodes/T kullaniliyor (uretim pipeline'iyla ayni mantik).
+target_per_frame = max(5, int(round((est_nodes / T) if est_nodes else 40)))
+print(f"dataset={DATASET_NAME} T={T} Z={Z} Y={Y} X={X}  gosterilecek frame={N_FRAMES}  "
+      f"est_nodes={est_nodes}  hedef_frame_basina={target_per_frame}")
 
 
 def mip_to_rgb(vol_zyx, size):
@@ -307,12 +298,12 @@ with torch.no_grad():
 
         from scipy.ndimage import maximum_filter
         pooled = maximum_filter(hm, size=(3, 11, 11), mode="nearest")
-        mask = (hm >= pooled) & (hm > 0.05)
+        mask = (hm >= pooled) & (hm > 0.025)
         idx = np.argwhere(mask)
         sc = hm[mask]
         n_gt_here = len(gt_by_t.get(t, []))
-        if len(idx) > max(5, int(1.2 * n_gt_here)):
-            keep = np.argpartition(-sc, max(5, int(1.2 * n_gt_here)))[:max(5, int(1.2 * n_gt_here))]
+        if len(idx) > target_per_frame:
+            keep = np.argpartition(-sc, target_per_frame)[:target_per_frame]
             idx = idx[keep]
         pred_yx = [(p[1] * OUT_SIZE / Y, p[2] * OUT_SIZE / X) for p in idx]
 
@@ -325,7 +316,8 @@ with torch.no_grad():
 
         d = ImageDraw.Draw(im)
         d.rectangle([0, 0, OUT_SIZE, 18], fill=(0, 0, 0))
-        d.text((4, 2), f"t={t:03d}  yesil=GT  kirmizi=tahmin", fill=(255, 255, 255))
+        d.text((4, 2), f"t={t:03d}  yesil=GT (kasitli seyrek, ~%3.6)  kirmizi=tahmin",
+              fill=(255, 255, 255))
         frames_out.append(im)
         if t % 10 == 0:
             print(f"  t={t:3d}  GT={n_gt_here}  tahmin={len(pred_yx)}")
